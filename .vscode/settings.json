@@ -1,0 +1,10 @@
+{
+  "conventionalCommits.scopes": [
+    "governance",
+    "community",
+    "templates",
+    "workflows",
+    "security",
+    "support"
+  ]
+}
