@@ -1,0 +1,57 @@
+name: CI — Rust
+
+on:
+  workflow_call:
+    inputs:
+      rust-version:
+        description: Rust toolchain version
+        type: string
+        default: stable
+      working-directory:
+        description: Directory containing the Cargo workspace
+        type: string
+        default: "."
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  ci:
+    name: Check / Clippy / Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ inputs.rust-version }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ inputs.rust-version }}
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Build
+        run: cargo build --all-targets --all-features
+
+      - name: Test (nextest)
+        run: cargo nextest run --all-features
+        env:
+          CARGO_TARGET_DIR: /tmp/cargo-target
