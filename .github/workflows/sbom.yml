@@ -1,0 +1,41 @@
+name: SBOM
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory containing the Cargo workspace
+        type: string
+        default: "."
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  sbom:
+    name: Generate CycloneDX SBOM
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-cyclonedx
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-cyclonedx
+
+      - name: Generate SBOM (CycloneDX JSON)
+        run: cargo cyclonedx --format json --output-cdx bom.cdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.ref_name }}-${{ github.sha }}
+          path: ${{ inputs.working-directory }}/bom.cdx.json
+          retention-days: 90
