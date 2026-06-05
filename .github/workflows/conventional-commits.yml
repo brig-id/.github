@@ -1,0 +1,52 @@
+name: Conventional Commits — PR title check
+
+on:
+  workflow_call:
+    inputs:
+      scopes:
+        description: |
+          Newline-separated list of allowed scopes.
+          Agents must not use scopes outside this list
+          (unless a new module is added — then update this list first).
+        type: string
+        required: true
+
+jobs:
+  check-pr-title:
+    name: PR title follows conventional commits + gitmoji
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Allowed commit types (must match AGENTS.md emoji table).
+          types: |
+            feat
+            fix
+            docs
+            chore
+            test
+            refactor
+            perf
+            style
+            ci
+            security
+            build
+            revert
+            wip
+          # Scopes injected by the calling repo — enforces the per-repo scope list.
+          scopes: ${{ inputs.scopes }}
+          requireScope: true
+          # Gitmoji is required between ": " and the description.
+          # Pattern: type(scope): <emoji> description
+          # The regex matches any single emoji (Unicode emoji or gitmoji code).
+          subjectPattern: ^(:\w+:|[\p{Emoji_Presentation}\p{Extended_Pictographic}]).+$
+          subjectPatternError: |
+            PR title must include a gitmoji after the colon.
+            Expected format: feat(api): ✨ add delete passkey endpoint
+            See AGENTS.md for the full emoji → type mapping.
+          # Ignore dependabot and merge commits.
+          ignoreLabels: |
+            bot
+            dependencies
