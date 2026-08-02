@@ -4,15 +4,18 @@ name: Conventional Commits — commit messages check
 on:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   check-commits:
     name: Commit messages follow conventional commits + gitmoji
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # The action does its own checkout (fetch-depth 0) by default; scopes
+      # are auto-read from each repo's own .vscode/settings.json
+      # (conventionalCommits.scopes) since none of these repos have a
+      # scopes.json file — scopes-file is checked first and just won't match.
+      - uses: helpers4/action/conventional-commits@6fddd178620e7325d446a246c38a44f979569fc4 # main @ 2026-07-29
         with:
-          fetch-depth: 0
-
-      - uses: helpers4/action-conventional-commits@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pr-comment: "none"

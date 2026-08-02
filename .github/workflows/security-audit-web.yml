@@ -1,0 +1,37 @@
+name: Security Audit — Web
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version
+        type: string
+        default: "24"
+      working-directory:
+        description: Directory containing package.json / pnpm-lock.yaml
+        type: string
+        default: "."
+    secrets:
+      WEBAWESOME_NPM_TOKEN:
+        description: Auth token for the private @web.awesome.me registry (npm.cloudsmith.io)
+        required: false
+
+jobs:
+  audit:
+    name: pnpm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure Web Awesome Pro registry auth
+        if: ${{ secrets.WEBAWESOME_NPM_TOKEN != '' }}
+        run: echo "//npm.cloudsmith.io/fortawesome/webawesome-pro/:_authToken=${{ secrets.WEBAWESOME_NPM_TOKEN }}" >> ~/.npmrc
+
+      - uses: helpers4/action/setup-pnpm@6fddd178620e7325d446a246c38a44f979569fc4 # main @ 2026-07-29
+        with:
+          node-version: ${{ inputs.node-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: pnpm audit
+        working-directory: ${{ inputs.working-directory }}
+        run: pnpm audit --audit-level high
