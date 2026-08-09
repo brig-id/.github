@@ -16,6 +16,9 @@ on:
         description: Auth token for the private @web.awesome.me registry (npm.cloudsmith.io)
         required: false
 
+permissions:
+  contents: read
+
 jobs:
   audit:
     name: pnpm audit
