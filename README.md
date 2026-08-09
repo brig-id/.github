@@ -37,13 +37,19 @@ Do **not** use it for product implementation, runtime code, or repository-specif
 └── SUPPORT.md
 ```
 
-## Bootstrap status
-
-The organization is intentionally starting with only two foundational repositories:
+## Repositories
 
 | Repository | Purpose |
 | --- | --- |
 | [`.github`](https://github.com/brig-id/.github) | Shared GitHub defaults and organization profile |
-| [`.dev`](https://github.com/brig-id/.dev) | Shared workspace, devcontainer, and AI guidance |
+| [`roots`](https://github.com/brig-id/roots) | Orchestration — canonical `AGENTS.md`, devcontainer, VS Code workspace |
+| [`crypto`](https://github.com/brig-id/crypto) | Cryptographic primitives |
+| [`core`](https://github.com/brig-id/core) | Business logic crates |
+| [`server-leaf`](https://github.com/brig-id/server-leaf) | Single-server deployment binary |
+| [`server-grove`](https://github.com/brig-id/server-grove) | Multi-server orchestration (future) |
+| [`server-forest`](https://github.com/brig-id/server-forest) | Global federation layer (future) |
+| [`spec`](https://github.com/brig-id/spec) | Technical specs for audit |
+| [`app`](https://github.com/brig-id/app) | Qwik UI |
 
-Future repositories will opt into the shared defaults from here as they are created.
+Product repositories opt into the shared defaults from here (reusable workflows,
+community health files, issue/PR templates).
