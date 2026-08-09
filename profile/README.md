@@ -7,6 +7,7 @@ hybrid post-quantum cryptography.
 | --- | --- |
 | [`.github`](https://github.com/brig-id/.github) | Shared GitHub defaults, community files, and org profile |
 | [`roots`](https://github.com/brig-id/roots) | Orchestration — canonical `AGENTS.md`, devcontainer, VS Code workspace |
+| [`cli`](https://github.com/brig-id/cli) | `brigid` dev orchestrator CLI |
 | [`crypto`](https://github.com/brig-id/crypto) | Cryptographic primitives |
 | [`core`](https://github.com/brig-id/core) | Business logic crates |
 | [`server-leaf`](https://github.com/brig-id/server-leaf) | Single-server deployment binary |
@@ -14,6 +15,7 @@ hybrid post-quantum cryptography.
 | [`server-forest`](https://github.com/brig-id/server-forest) | Global federation layer (future) |
 | [`spec`](https://github.com/brig-id/spec) | Technical specs for audit |
 | [`app`](https://github.com/brig-id/app) | Qwik UI |
+| [`site`](https://github.com/brig-id/site) | Public marketing/landing site |
 
 ## Direction
 
