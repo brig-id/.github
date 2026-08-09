@@ -1,27 +1,28 @@
 # brig·id
 
-**brig·id** is a passwordless identity platform built around passkeys, privacy, and decentralized identifiers.
-
-The GitHub organization is currently being bootstrapped. The first repositories establish the shared foundation before product repositories are created:
+**brig·id** is a self-hosted identity provider built around passkeys (WebAuthn), OIDC, and
+hybrid post-quantum cryptography.
 
 | Repository | Role |
 | --- | --- |
 | [`.github`](https://github.com/brig-id/.github) | Shared GitHub defaults, community files, and org profile |
-| [`.dev`](https://github.com/brig-id/.dev) | Shared VS Code workspace, devcontainer, and AI guidance |
+| [`roots`](https://github.com/brig-id/roots) | Orchestration — canonical `AGENTS.md`, devcontainer, VS Code workspace |
+| [`crypto`](https://github.com/brig-id/crypto) | Cryptographic primitives |
+| [`core`](https://github.com/brig-id/core) | Business logic crates |
+| [`server-leaf`](https://github.com/brig-id/server-leaf) | Single-server deployment binary |
+| [`server-grove`](https://github.com/brig-id/server-grove) | Multi-server orchestration (future) |
+| [`server-forest`](https://github.com/brig-id/server-forest) | Global federation layer (future) |
+| [`spec`](https://github.com/brig-id/spec) | Technical specs for audit |
+| [`app`](https://github.com/brig-id/app) | Qwik UI |
 
 ## Direction
 
 - passwordless authentication with WebAuthn / passkeys
-- privacy-respecting identity flows
-- decentralized-compatible identifiers
-- clear separation between shared tooling and future product repositories
+- OIDC issuance with pairwise, non-correlable subject identifiers
+- hybrid post-quantum cryptography alongside classical primitives
+- privacy-respecting, decentralized-compatible identity (DID:web)
+- self-hostable: single-server today (`server-leaf`), multi-server and federated
+  deployments planned (`server-grove`, `server-forest`)
 
-## Organization bootstrap
-
-Today, this organization mostly contains bootstrap material:
-
-- GitHub-level defaults and templates
-- a shared development workspace
-- shared AI guidance for early repository setup
-
-Application, infrastructure, and documentation repositories will be added later as the platform is split into focused components.
+Roadmap and in-progress work are tracked on
+[GitHub Project 1](https://github.com/orgs/brig-id/projects/1), not in this file.
