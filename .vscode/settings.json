@@ -7,6 +7,10 @@
     "workflows",
     "conventional-commits",
     "security",
-    "support"
+    "support",
+    "ai",
+    "ci",
+    "deps",
+    "docs"
   ]
 }
