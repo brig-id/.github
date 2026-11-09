@@ -39,11 +39,14 @@ jobs:
           tool: cargo-cyclonedx
 
       - name: Generate SBOM (CycloneDX JSON)
-        run: cargo cyclonedx --format json --output-cdx bom.cdx.json
+        # cargo-cyclonedx 0.5 writes one SBOM next to each crate's Cargo.toml (so one per
+        # member in a workspace); --override-filename names them, extension added by --format.
+        run: cargo cyclonedx --format json --override-filename bom.cdx
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v7
         with:
           name: sbom-${{ github.ref_name }}-${{ github.sha }}
-          path: ${{ inputs.working-directory }}/bom.cdx.json
+          path: ${{ inputs.working-directory }}/**/bom.cdx.json
+          if-no-files-found: error
           retention-days: 90
