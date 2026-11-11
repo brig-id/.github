@@ -1,0 +1,75 @@
+name: Uptime
+
+# External uptime check for the public brig·id endpoints (#11). Runs here
+# because this repository is public (scheduled runs cost no minutes) and
+# outside the Oracle VM it watches.
+#
+# On failure it opens (or comments on) one issue labelled `incident`, assigned
+# to the maintainer, so GitHub notifies them. On recovery it closes it.
+# GitHub may delay scheduled runs under load; 5 minutes is the floor.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: "Outage: a public brig·id endpoint is down"
+    steps:
+      - name: Probe endpoints
+        id: probe
+        run: |
+          failures=""
+          probe() {
+            # 3 attempts, 10 s each: one slow answer is not an outage.
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$1" || true)
+              [ "$code" = "$2" ] && return 0
+              sleep 5
+            done
+            failures="${failures}- \`$1\` answered \`${code:-no response}\` (expected \`$2\`)"$'\n'
+          }
+          probe https://helm.brig.id/health 200
+          probe https://brig.id/ 200
+          {
+            echo "failures<<EOF"
+            printf '%s' "$failures"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the incident
+        if: steps.probe.outputs.failures != ''
+        env:
+          FAILURES: ${{ steps.probe.outputs.failures }}
+        run: |
+          gh label create incident --color B60205 --description "Production outage" 2>/dev/null || true
+          body="$(printf '%s\n\nRun: %s/%s/actions/runs/%s\n' "$FAILURES" \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"
+          open=$(gh issue list --label incident --state open --json number -q '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "Still failing at $(date -u +%FT%TZ):"$'\n\n'"$body"
+          else
+            gh issue create --title "$TITLE" --label incident --assignee baxyz --body "$body"
+          fi
+          exit 1
+
+      - name: Close a resolved incident
+        if: steps.probe.outputs.failures == ''
+        run: |
+          for n in $(gh issue list --label incident --state open --json number -q '.[].number'); do
+            gh issue close "$n" --comment "Recovered at $(date -u +%FT%TZ): every endpoint answers again."
+          done
