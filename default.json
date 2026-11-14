@@ -1,0 +1,73 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "brig·id: the one Renovate preset, extended by every repository with",
+    "{ \"extends\": [\"github>brig-id/.github\"] }.",
+    "Renovate opens pull requests and never merges them."
+  ],
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "docker:pinDigests"
+  ],
+  "timezone": "Europe/Paris",
+  "schedule": ["before 7am on monday"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 0,
+  "labels": ["dependencies"],
+  "automerge": false,
+  "platformAutomerge": false,
+  "rebaseWhen": "conflicted",
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "commitMessageAction": "⬆️ update",
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["dependencies", "security"],
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 7am on the first day of the month"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": [
+        "A tag and its commit, written together and annotated on the line above:",
+        "  # renovate: datasource=github-tags depName=brig-id/app",
+        "  ref: <40 hex> # v1.2.3",
+        "Both are updated in one pull request: the commit is what is built, the tag says which release it is."
+      ],
+      "managerFilePatterns": ["/(^|/)\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*ref:\\s*(?<currentDigest>[a-f0-9]{40})\\s*#\\s*(?<currentValue>v?\\d\\S*)"
+      ],
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "GitHub Actions: one pull request a week for all of them.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    },
+    {
+      "description": "The project's own repositories (crypto, core, app): as soon as a release exists, never grouped with anything else.",
+      "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//"],
+      "schedule": ["at any time"],
+      "minimumReleaseAge": null,
+      "groupName": null,
+      "labels": ["dependencies", "brig-id"]
+    },
+    {
+      "description": "A major version is a decision: one pull request each, never grouped.",
+      "matchUpdateTypes": ["major"],
+      "groupName": null
+    }
+  ]
+}
