@@ -34,7 +34,8 @@ Do **not** use it for product implementation, runtime code, or repository-specif
 ├── CONTRIBUTING.md
 ├── PULL_REQUEST_TEMPLATE.md
 ├── SECURITY.md
-└── SUPPORT.md
+├── SUPPORT.md
+└── TRADEMARKS.md
 ```
 
 ## Repositories
