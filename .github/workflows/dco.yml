@@ -5,9 +5,10 @@ name: DCO — sign-off check
 #
 # Skipped when the pull request is opened by a member of brig-id (its
 # author_association is OWNER, MEMBER or COLLABORATOR) or by a bot. A skipped
-# job counts as passed for a required check. The association in the event
-# says CONTRIBUTOR for a member whose membership is private, so the step asks
-# the API again, and also lets through whoever can push to the repository.
+# job counts as passed for a required check. For a member whose membership
+# is private, the association is CONTRIBUTOR in the event and in what the
+# API tells this workflow's token: the step also lets through whoever can
+# push to the repository (owners and maintainers included).
 #
 # Called from a repository with a thin caller on `pull_request` (see
 # README.md). This repository runs it on its own pull requests too.
