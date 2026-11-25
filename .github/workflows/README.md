@@ -45,7 +45,9 @@ and no longer needs a `dependabot.yml`. What the preset does:
 - commits are `chore(deps): ⬆️ update …`, which passes the commit check, except
   for the project's own releases, all in one pull request `feat(deps): ✨ bring
   in …` (a new minor) or `fix(deps): 🐛 bring in …` (anything else), so that
-  release-please sees them;
+  release-please sees them. A server (seedling, grove), which the interface and
+  the demo only test against, comes in as `ci(deps): 👷 test against …`: it
+  releases nothing, or each release would start the other one again;
 - **Renovate never merges.**
 
 ## Releases

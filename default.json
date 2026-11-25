@@ -92,6 +92,16 @@
       "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
       "semanticCommitType": "fix",
       "commitMessageAction": "🐛 bring in"
+    },
+    {
+      "description": [
+        "A server is never part of what is released elsewhere: the interface and the demo only test",
+        "against it. Its update is ci, which releases nothing; otherwise each release of the interface",
+        "would release a server, which would release the interface again, without end."
+      ],
+      "matchPackageNames": ["/^brig-id/server-/", "/github\\.com/brig-id/server-/"],
+      "semanticCommitType": "ci",
+      "commitMessageAction": "👷 test against"
     }
   ]
 }
