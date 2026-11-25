@@ -1,0 +1,98 @@
+name: Release
+
+# release-please keeps one pull request up to date with the next version and
+# its changelog entry, from the Conventional Commits merged to main. Merging
+# that pull request is the release: release-please then creates the tag
+# `vX.Y.Z` and the GitHub Release. Nobody writes a changelog or a tag by hand.
+#
+# What release-please creates with the workflow's own token starts no other
+# workflow, so neither its pull request nor its tag would be tested or built.
+# A `workflow_dispatch` is the one event that token may start, so this
+# workflow starts the caller's own workflows itself:
+#
+# - on the release pull request, each workflow of `workflows`: its checks then
+#   show on the pull request like any other;
+# - on the new tag, the same workflows: the jobs a caller runs only on a tag
+#   (`startsWith(github.ref, 'refs/tags/v')`) build and publish the release.
+#
+# No GitHub App and no personal token. Nothing here merges.
+#
+# The caller needs `release-please-config.json` and
+# `.release-please-manifest.json` at its root, `workflow_dispatch:` in each
+# workflow it names, and, once in the organisation's settings: Actions →
+# General → "Allow GitHub Actions to create and approve pull requests".
+#
+#   jobs:
+#     release:
+#       uses: brig-id/.github/.github/workflows/release.yml@<sha>
+#       permissions:
+#         contents: write
+#         pull-requests: write
+#         actions: write
+#       with:
+#         workflows: ci.yml
+
+on:
+  workflow_call:
+    inputs:
+      workflows:
+        description: >-
+          The caller's workflow files to start on the release pull request and
+          on the tag, separated by spaces (e.g. "ci.yml e2e.yml").
+        type: string
+        default: ci.yml
+    outputs:
+      release_created:
+        description: "'true' when this run created a release."
+        value: ${{ jobs.release.outputs.release_created }}
+      tag_name:
+        description: The release's tag, when one was created.
+        value: ${{ jobs.release.outputs.tag_name }}
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release pull request, or the release itself
+    runs-on: ubuntu-latest
+    permissions:
+      # The tag and the GitHub Release.
+      contents: write
+      # The release pull request.
+      pull-requests: write
+      # Starting the caller's workflows (workflow_dispatch).
+      actions: write
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Test the release pull request
+        if: steps.rp.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ fromJSON(steps.rp.outputs.pr).headBranchName }}
+          WORKFLOWS: ${{ inputs.workflows }}
+        run: |
+          for workflow in $WORKFLOWS; do
+            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+            echo "Started $workflow on $BRANCH" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Build the release
+        if: steps.rp.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.rp.outputs.tag_name }}
+          WORKFLOWS: ${{ inputs.workflows }}
+        run: |
+          for workflow in $WORKFLOWS; do
+            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+            echo "Started $workflow on $TAG" >> "$GITHUB_STEP_SUMMARY"
+          done

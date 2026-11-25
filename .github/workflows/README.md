@@ -32,7 +32,7 @@ and no longer needs a `dependabot.yml`. What the preset does:
   a month;
 - a public release is proposed once it is a week old; a security fix at once;
 - **the project's own repositories** (`crypto`, `core`, `app`) are proposed as
-  soon as they release, each on its own. A cargo git dependency pinned by
+  soon as they release, together. A cargo git dependency pinned by
   `tag` is followed as it is. A commit that must be written next to its tag
   (the interface a server builds from source) is annotated:
 
@@ -42,5 +42,46 @@ and no longer needs a `dependabot.yml`. What the preset does:
   ```
 
   and both are updated together;
-- commits are `chore(deps): ⬆️ update …`, which passes the commit check;
+- commits are `chore(deps): ⬆️ update …`, which passes the commit check, except
+  for the project's own releases, all in one pull request `feat(deps): ✨ bring
+  in …` (a new minor) or `fix(deps): 🐛 bring in …` (anything else), so that
+  release-please sees them;
 - **Renovate never merges.**
+
+## Releases
+
+`release.yml` is how a repository releases. A repository's own `release.yml`
+calls it on every push to `main`:
+
+```yaml
+on:
+  push:
+    branches: [main]
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    uses: brig-id/.github/.github/workflows/release.yml@<sha>
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    with:
+      workflows: ci.yml
+```
+
+- release-please keeps **one release pull request** open, with the next
+  version (`feat` → minor before 1.0, `fix` → patch) and the changelog entry,
+  written from the commit subjects. Merging it is the release: the tag
+  `vX.Y.Z` and the GitHub Release follow on their own.
+- The workflows named in `workflows` are started on that pull request, so it
+  is tested like any other, and again on the tag, where a server builds and
+  publishes its binaries and image. They need `workflow_dispatch:` among their
+  triggers.
+- A server's update to a new release of crypto, core or the interface comes
+  from Renovate as `feat(deps)` or `fix(deps)` (see "Updates"), so the
+  server's own release pull request follows.
+
+From the workspace, `brigid release` lists the pull requests to merge, in
+order, with their checks.
