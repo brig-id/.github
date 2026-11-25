@@ -77,9 +77,12 @@ jobs:
         if: steps.rp.outputs.prs_created == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ fromJSON(steps.rp.outputs.pr).headBranchName }}
+          # Read in the shell, not with fromJSON(): the step's env is evaluated
+          # even when the step is skipped, and the output is then empty.
+          PR: ${{ steps.rp.outputs.pr }}
           WORKFLOWS: ${{ inputs.workflows }}
         run: |
+          BRANCH=$(jq -r .headBranchName <<< "$PR")
           for workflow in $WORKFLOWS; do
             gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
             echo "Started $workflow on $BRANCH" >> "$GITHUB_STEP_SUMMARY"
