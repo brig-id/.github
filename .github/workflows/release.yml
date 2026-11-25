@@ -74,18 +74,31 @@ jobs:
           manifest-file: .release-please-manifest.json
 
       - name: Test the release pull request
-        if: steps.rp.outputs.prs_created == 'true'
+        # Whenever a release pull request is open, not only when this run
+        # changed it: a run cancelled or failed after release-please would
+        # otherwise leave it untested. Each workflow is started once per
+        # commit of that pull request.
+        if: steps.rp.outputs.release_created != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          # Read in the shell, not with fromJSON(): the step's env is evaluated
-          # even when the step is skipped, and the output is then empty.
-          PR: ${{ steps.rp.outputs.pr }}
           WORKFLOWS: ${{ inputs.workflows }}
         run: |
-          BRANCH=$(jq -r .headBranchName <<< "$PR")
+          branch=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open \
+            --label "autorelease: pending" --json headRefName --jq '.[0].headRefName // empty')
+          if [ -z "$branch" ]; then
+            echo "No release pull request open." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/branches/$branch" --jq .commit.sha)
           for workflow in $WORKFLOWS; do
-            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
-            echo "Started $workflow on $BRANCH" >> "$GITHUB_STEP_SUMMARY"
+            runs=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" \
+              --commit "$sha" --json databaseId --jq length)
+            if [ "$runs" = 0 ]; then
+              gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$branch"
+              echo "Started $workflow on $branch ($sha)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "$workflow already ran on $branch ($sha)" >> "$GITHUB_STEP_SUMMARY"
+            fi
           done
 
       - name: Build the release
