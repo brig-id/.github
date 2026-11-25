@@ -5,7 +5,9 @@ name: DCO — sign-off check
 #
 # Skipped when the pull request is opened by a member of brig-id (its
 # author_association is OWNER, MEMBER or COLLABORATOR) or by a bot. A skipped
-# job counts as passed for a required check.
+# job counts as passed for a required check. The association in the event
+# says CONTRIBUTOR for a member whose membership is private, so the step asks
+# the API again, and also lets through whoever can push to the repository.
 #
 # Called from a repository with a thin caller on `pull_request` (see
 # README.md). This repository runs it on its own pull requests too.
@@ -38,8 +40,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
+          association=$(gh api "repos/$REPOSITORY/pulls/$PULL_REQUEST" --jq '.author_association')
+          permission=$(gh api "repos/$REPOSITORY/collaborators/$AUTHOR/permission" --jq '.permission' 2>/dev/null || echo none)
+          echo "Author $AUTHOR: association $association, permission $permission."
+          case "$association" in OWNER | MEMBER | COLLABORATOR)
+            echo "A member of the organisation: no sign-off required." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+            ;;
+          esac
+          case "$permission" in admin | maintain | write)
+            echo "Can push to the repository: no sign-off required." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+            ;;
+          esac
           # The API lists at most 250 commits of a pull request: more is refused.
           count=$(gh api "repos/$REPOSITORY/pulls/$PULL_REQUEST" --jq '.commits')
           if [ "$count" -gt 250 ]; then
