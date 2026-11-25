@@ -96,13 +96,15 @@ Certificate of Origin, explained in `CONTRIBUTING.md`).
 
 - It is **skipped** when the pull request comes from a member of the
   organisation (its `author_association` is `OWNER`, `MEMBER` or
-  `COLLABORATOR`) or from a bot (a login ending in `[bot]`, `dependabot`,
-  `renovate`). A skipped job counts as passed when the check is required.
+  `COLLABORATOR`, or its author can push to the repository) or from a bot (a
+  login ending in `[bot]`, `dependabot`, `renovate`). A skipped job counts as
+  passed when the check is required.
 - It checks out nothing and runs nothing of the pull request: it reads the
   commits from the API. A pull request of more than 250 commits fails (the API
   lists no more).
-- A member whose membership of the organisation is private may be seen as
-  `CONTRIBUTOR` and then has to sign off too, or make the membership public.
+- The event of a pull request says `CONTRIBUTOR` for a member whose
+  membership of the organisation is private, so the check asks the API again
+  before it reads the commits.
 
 This repository runs it on its own pull requests. **A repository opts in** with
 one file, `.github/workflows/dco.yml`, also offered as a workflow template
