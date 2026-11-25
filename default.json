@@ -41,11 +41,12 @@
         "A tag and its commit, written together and annotated on the line above:",
         "  # renovate: datasource=github-tags depName=brig-id/app",
         "  ref: <40 hex> # v1.2.3",
+        "The key may also be a variable whose name ends in REF: APP_REF: <40 hex> # v1.2.3.",
         "Both are updated in one pull request: the commit is what is built, the tag says which release it is."
       ],
       "managerFilePatterns": ["/(^|/)\\.github/workflows/[^/]+\\.ya?ml$/"],
       "matchStrings": [
-        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*ref:\\s*(?<currentDigest>[a-f0-9]{40})\\s*#\\s*(?<currentValue>v?\\d\\S*)"
+        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*(?:ref|[A-Z_]*REF):\\s*(?<currentDigest>[a-f0-9]{40})\\s*#\\s*(?<currentValue>v?\\d\\S*)"
       ],
       "versioningTemplate": "semver"
     }
@@ -57,17 +58,40 @@
       "groupName": "github actions"
     },
     {
-      "description": "The project's own repositories (crypto, core, app): as soon as a release exists, never grouped with anything else.",
-      "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//"],
-      "schedule": ["at any time"],
-      "minimumReleaseAge": null,
-      "groupName": null,
-      "labels": ["dependencies", "brig-id"]
-    },
-    {
       "description": "A major version is a decision: one pull request each, never grouped.",
       "matchUpdateTypes": ["major"],
       "groupName": null
+    },
+    {
+      "description": [
+        "The project's own releases (crypto, core, app): proposed as soon as they exist, all in ONE pull",
+        "request per repository, whatever the kind of update. The core, crypto and the interface move",
+        "together, and two versions of the core in one build do not compile. Not brig-id/.github: its",
+        "reusable workflows are pinned by commit and go with the GitHub Actions."
+      ],
+      "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//", "!brig-id/.github"],
+      "schedule": ["at any time"],
+      "minimumReleaseAge": null,
+      "groupName": "brig·id",
+      "groupSlug": "brig-id",
+      "labels": ["dependencies", "brig-id"]
+    },
+    {
+      "description": [
+        "A release of the project's own code changes what a server is made of, so release-please must",
+        "see it: a new minor (or major) comes in as a feat, anything else as a fix, and the server's next",
+        "release follows from it. Each type with its emoji, as the commit check wants."
+      ],
+      "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//", "!brig-id/.github"],
+      "matchUpdateTypes": ["major", "minor"],
+      "semanticCommitType": "feat",
+      "commitMessageAction": "✨ bring in"
+    },
+    {
+      "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//", "!brig-id/.github"],
+      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "semanticCommitType": "fix",
+      "commitMessageAction": "🐛 bring in"
     }
   ]
 }
