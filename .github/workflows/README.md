@@ -102,9 +102,10 @@ Certificate of Origin, explained in `CONTRIBUTING.md`).
 - It checks out nothing and runs nothing of the pull request: it reads the
   commits from the API. A pull request of more than 250 commits fails (the API
   lists no more).
-- The event of a pull request says `CONTRIBUTOR` for a member whose
-  membership of the organisation is private, so the check asks the API again
-  before it reads the commits.
+- For a member whose membership of the organisation is private, the
+  association is `CONTRIBUTOR`, in the event and in what the API tells the
+  workflow's token: what lets such a member through is the right to push to
+  the repository. A private member with read access only is asked to sign off.
 
 This repository runs it on its own pull requests. **A repository opts in** with
 one file, `.github/workflows/dco.yml`, also offered as a workflow template
