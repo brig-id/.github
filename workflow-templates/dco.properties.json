@@ -1,0 +1,6 @@
+{
+  "name": "DCO sign-off check",
+  "description": "Checks that every commit of a pull request from outside the organisation is signed off by its author (Developer Certificate of Origin).",
+  "iconName": "octicon shield-check",
+  "categories": ["Automation"]
+}

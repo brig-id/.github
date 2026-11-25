@@ -1,0 +1,77 @@
+name: DCO — sign-off check
+
+# Every commit of a pull request carries a `Signed-off-by:` line that matches
+# its author (Developer Certificate of Origin, see CONTRIBUTING.md).
+#
+# Skipped when the pull request is opened by a member of brig-id (its
+# author_association is OWNER, MEMBER or COLLABORATOR) or by a bot. A skipped
+# job counts as passed for a required check.
+#
+# Called from a repository with a thin caller on `pull_request` (see
+# README.md). This repository runs it on its own pull requests too.
+#
+# Nothing of the pull request is checked out or run: the commits are read
+# from the API, and every value from them reaches the shell through `env`,
+# never through `${{ }}` in a script.
+on:
+  workflow_call:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sign-off:
+    name: Every commit is signed off by its author
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    if: >-
+      github.event_name == 'pull_request' &&
+      !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
+      !endsWith(github.event.pull_request.user.login, '[bot]') &&
+      !contains(fromJSON('["dependabot", "renovate", "renovate-bot"]'), github.event.pull_request.user.login)
+    steps:
+      - name: Check the Signed-off-by line of every commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # The API lists at most 250 commits of a pull request: more is refused.
+          count=$(gh api "repos/$REPOSITORY/pulls/$PULL_REQUEST" --jq '.commits')
+          if [ "$count" -gt 250 ]; then
+            echo "::error::$count commits: the check reads at most 250. Split the pull request."
+            exit 1
+          fi
+          # One line per commit without a sign-off by its own author. The name
+          # must be the author's; the address too, compared without case.
+          gh api --paginate "repos/$REPOSITORY/pulls/$PULL_REQUEST/commits" --jq '
+            .[]
+            | .sha as $sha
+            | .commit.author.name as $name
+            | .commit.author.email as $email
+            | [ .commit.message
+                | split("\n")[]
+                | rtrimstr("\r")
+                | capture("^Signed-off-by:\\s*(?<name>.*?)\\s*<(?<email>[^>]*)>\\s*$"; "i")
+                | select(.name == $name and (.email | ascii_downcase) == ($email | ascii_downcase))
+              ]
+            | select(length == 0)
+            | "\($sha[0:12]) by \($name) <\($email)>"
+          ' > unsigned.txt
+          if [ -s unsigned.txt ]; then
+            {
+              echo "These commits have no \`Signed-off-by:\` line matching their author:"
+              echo
+              sed 's/^/- /' unsigned.txt
+              echo
+              echo "Add it with \`git rebase --signoff origin/main\`, then push the branch again."
+              echo "What the line means: CONTRIBUTING.md, \"Sign your commits off\"."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::error::$(wc -l < unsigned.txt) commit(s) without a matching Signed-off-by line"
+            exit 1
+          fi
+          echo "Every commit is signed off by its author." | tee -a "$GITHUB_STEP_SUMMARY"
