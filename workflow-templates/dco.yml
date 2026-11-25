@@ -1,0 +1,21 @@
+name: DCO
+
+# Checks that every commit of a pull request from outside the brig-id
+# organisation carries a Signed-off-by line matching its author.
+# Members of the organisation and bots are skipped.
+# Replace the SHA with the current commit of brig-id/.github's main
+# (a reusable workflow is never referenced by branch).
+
+on:
+  pull_request:
+    branches: [$default-branch, "dev/*"]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    uses: brig-id/.github/.github/workflows/dco.yml@0000000000000000000000000000000000000000 # replace with a 40-character commit SHA
+    permissions:
+      contents: read
+      pull-requests: read

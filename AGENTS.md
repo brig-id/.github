@@ -22,6 +22,7 @@ comments, issue titles. No exceptions.
 | `ci-rust.yml` | `workflow_call` | fmt check, clippy, cargo nextest |
 | `security-audit.yml` | `workflow_call` | cargo audit, cargo deny check |
 | `coverage.yml` | `workflow_call` | cargo llvm-cov + upload Codecov |
+| `dco.yml` | `workflow_call`, `pull_request` | every commit of an outside contributor's PR is signed off by its author |
 
 Product repos call these with a thin caller workflow in their own `.github/workflows/`.
 
