@@ -3,7 +3,10 @@
   "description": [
     "brig·id: the one Renovate preset, extended by every repository with",
     "{ \"extends\": [\"github>brig-id/.github\"] }.",
-    "Renovate opens pull requests and never merges them."
+    "Renovate opens pull requests and never merges them. A repository gets at most, on a",
+    "Monday, one pull request for everything from outside the project and one for the",
+    "project's own releases; a lock file refresh a month; a security fix at once. A major",
+    "version waits on the Dependency Dashboard until its box is ticked."
   ],
   "extends": [
     "config:recommended",
@@ -19,7 +22,7 @@
   "platformAutomerge": false,
   "rebaseWhen": "conflicted",
   "semanticCommits": "enabled",
-  "semanticCommitType": "chore",
+  "semanticCommitType": "build",
   "semanticCommitScope": "deps",
   "commitMessageAction": "⬆️ update",
   "minimumReleaseAge": "7 days",
@@ -28,11 +31,16 @@
   "vulnerabilityAlerts": {
     "labels": ["dependencies", "security"],
     "schedule": ["at any time"],
-    "minimumReleaseAge": null
+    "minimumReleaseAge": null,
+    "groupName": null,
+    "dependencyDashboardApproval": false,
+    "semanticCommitType": "fix",
+    "commitMessageAction": "🔒️ update"
   },
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 7am on the first day of the month"]
+    "schedule": ["before 7am on the first day of the month"],
+    "commitMessageAction": "⬆️ refresh the lock file"
   },
   "customManagers": [
     {
@@ -53,43 +61,41 @@
   ],
   "packageRules": [
     {
-      "description": "GitHub Actions: one pull request a week for all of them.",
-      "matchManagers": ["github-actions"],
-      "groupName": "github actions"
+      "description": [
+        "An update from outside the project is not a release of its own: build(deps), which",
+        "release-please leaves out; it ships with the next release. config:recommended would make",
+        "a runtime dependency fix(deps), and each one would open a release pull request. A security",
+        "fix is the exception (vulnerabilityAlerts above)."
+      ],
+      "matchPackageNames": ["*"],
+      "semanticCommitType": "build"
     },
     {
-      "description": "A major version is a decision: one pull request each, never grouped.",
+      "description": "Everything from outside the project but a major: ONE pull request a week per repository.",
+      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
+      "groupName": "dependencies",
+      "groupSlug": "dependencies"
+    },
+    {
+      "description": "A major version is a decision: one pull request each, opened from the Dependency Dashboard.",
       "matchUpdateTypes": ["major"],
-      "groupName": null
+      "dependencyDashboardApproval": true
     },
     {
       "description": [
-        "The project's own releases (crypto, core, app): proposed as soon as they exist, all in ONE pull",
-        "request per repository, whatever the kind of update. The core, crypto and the interface move",
-        "together, and two versions of the core in one build do not compile. Not brig-id/.github: its",
-        "reusable workflows are pinned by commit and go with the GitHub Actions."
+        "The project's own releases (crypto, core, app): all in ONE pull request per repository,",
+        "on the same Monday schedule; its box on the Dependency Dashboard opens it at once when it",
+        "is wanted sooner. The core, crypto and the interface move together, and two versions of",
+        "the core in one build do not compile. It comes in as a fix, whatever the kind of update,",
+        "so the release it leads to is a patch. Not brig-id/.github: its reusable workflows are",
+        "pinned by a commit without a tag, which Renovate does not follow; they are moved by hand."
       ],
       "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//", "!brig-id/.github"],
-      "schedule": ["at any time"],
       "minimumReleaseAge": null,
+      "dependencyDashboardApproval": false,
       "groupName": "brig·id",
       "groupSlug": "brig-id",
-      "labels": ["dependencies", "brig-id"]
-    },
-    {
-      "description": [
-        "A release of the project's own code changes what a server is made of, so release-please must",
-        "see it: a new minor (or major) comes in as a feat, anything else as a fix, and the server's next",
-        "release follows from it. Each type with its emoji, as the commit check wants."
-      ],
-      "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//", "!brig-id/.github"],
-      "matchUpdateTypes": ["major", "minor"],
-      "semanticCommitType": "feat",
-      "commitMessageAction": "✨ bring in"
-    },
-    {
-      "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//", "!brig-id/.github"],
-      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "labels": ["dependencies", "brig-id"],
       "semanticCommitType": "fix",
       "commitMessageAction": "🐛 bring in"
     },

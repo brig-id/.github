@@ -28,26 +28,34 @@ preset. A repository uses it with one file, `renovate.json`:
 and no longer needs a `dependabot.yml`. What the preset does:
 
 - cargo, npm, GitHub Actions (pinned by digest) and Dockerfile images (pinned
-  by digest); one grouped pull request a week for Actions; a lock file refresh
-  a month;
-- a public release is proposed once it is a week old; a security fix at once;
-- **the project's own repositories** (`crypto`, `core`, `app`) are proposed as
-  soon as they release, together. A cargo git dependency pinned by
-  `tag` is followed as it is. A commit that must be written next to its tag
-  (the interface a server builds from source) is annotated:
+  by digest), proposed once a release is a week old, on Monday morning:
+  **one pull request a week per repository** for all of them, `build(deps):
+  ⬆️ update …`. release-please leaves `build` out: such an update ships with
+  the next release and makes none;
+- a major version, one pull request each, only once its box is ticked on the
+  repository's Dependency Dashboard (an issue Renovate keeps);
+- a lock file refresh a month;
+- a security fix at once, on its own, as `fix(deps): 🔒️ update …`, so that it
+  is released;
+- **the project's own repositories** (`crypto`, `core`, `app`): one pull
+  request per repository, on the same Monday, `fix(deps): 🐛 bring in …`
+  whatever the update, so the release it leads to is a patch. Its box on the
+  Dependency Dashboard ("Awaiting Schedule") opens it at once. A cargo git
+  dependency pinned by `tag` is followed as it is. A commit that must be
+  written next to its tag (the interface a server builds from source) is
+  annotated:
 
   ```yaml
   # renovate: datasource=github-tags depName=brig-id/app
   ref: <40-character commit SHA> # v1.2.3
   ```
 
-  and both are updated together;
-- commits are `chore(deps): ⬆️ update …`, which passes the commit check, except
-  for the project's own releases, all in one pull request `feat(deps): ✨ bring
-  in …` (a new minor) or `fix(deps): 🐛 bring in …` (anything else), so that
-  release-please sees them. A server (seedling, grove), which the interface and
-  the demo only test against, comes in as `ci(deps): 👷 test against …`: it
-  releases nothing, or each release would start the other one again;
+  and both are updated together. A server (seedling, grove), which the
+  interface and the demo only test against, comes in as `ci(deps): 👷 test
+  against …`: it releases nothing, or each release would start the other one
+  again;
+- the workflows of this repository are pinned by a commit without a tag, which
+  Renovate does not follow: a caller moves its pins by hand;
 - **Renovate never merges.**
 
 ## Releases
@@ -74,16 +82,21 @@ jobs:
 ```
 
 - release-please keeps **one release pull request** open, with the next
-  version (`feat` → minor before 1.0, `fix` → patch) and the changelog entry,
-  written from the commit subjects. Merging it is the release: the tag
-  `vX.Y.Z` and the GitHub Release follow on their own.
+  version and the changelog entry, written from the commit subjects. Before
+  1.0, `feat` and `fix` both make a patch, and a `!` or `BREAKING CHANGE:` a
+  minor (`bump-patch-for-minor-pre-major`); `build`, `ci`, `chore`, `docs`,
+  `test` and `refactor` alone open no release pull request. Merging it is the
+  release, and nothing else is: the tag `vX.Y.Z` and the GitHub Release follow
+  on their own.
 - The workflows named in `workflows` are started on that pull request, so it
   is tested like any other, and again on the tag, where a server builds and
   publishes its binaries and image. They need `workflow_dispatch:` among their
-  triggers.
+  triggers. The `pull_request` runs GitHub also creates for that pull request
+  wait for an approval, run nothing and fail when it expires: they can be
+  ignored.
 - A server's update to a new release of crypto, core or the interface comes
-  from Renovate as `feat(deps)` or `fix(deps)` (see "Updates"), so the
-  server's own release pull request follows.
+  from Renovate as `fix(deps)` (see "Updates"), so the server's own release
+  pull request follows.
 
 From the workspace, `brigid release` lists the pull requests to merge, in
 order, with their checks.
