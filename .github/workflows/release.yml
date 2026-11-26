@@ -90,9 +90,14 @@ jobs:
             exit 0
           fi
           sha=$(gh api "repos/$GITHUB_REPOSITORY/branches/$branch" --jq .commit.sha)
+          # Only a run started here counts. GitHub also creates `pull_request`
+          # runs for that pull request, opened by this workflow's token: they
+          # wait for an approval, run no job and fail when it expires. Counted,
+          # they left the release pull request untested
+          # (server-seedling#122, server-grove#26).
           for workflow in $WORKFLOWS; do
             runs=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" \
-              --commit "$sha" --json databaseId --jq length)
+              --commit "$sha" --event workflow_dispatch --json databaseId --jq length)
             if [ "$runs" = 0 ]; then
               gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$branch"
               echo "Started $workflow on $branch ($sha)" >> "$GITHUB_STEP_SUMMARY"
