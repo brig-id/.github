@@ -38,8 +38,9 @@ and no longer needs a `dependabot.yml`. What the preset does:
 - a security fix at once, on its own, as `fix(deps): 🔒️ update …`, so that it
   is released;
 - **the project's own repositories** (`crypto`, `core`, `app`): one pull
-  request per repository, on the same Monday, `fix(deps): 🐛 bring in …`
-  whatever the update, so the release it leads to is a patch. Its box on the
+  request per repository, on the same Monday, `build(deps): ⬆️ bring in …`
+  whatever the update: it releases nothing, and the dependent ships it with
+  its next release, or when its owner asks for one. Its box on the
   Dependency Dashboard ("Awaiting Schedule") opens it at once. A cargo git
   dependency pinned by `tag` is followed as it is. A commit that must be
   written next to its tag (the interface a server builds from source) is
@@ -95,8 +96,9 @@ jobs:
   wait for an approval, run nothing and fail when it expires: they can be
   ignored.
 - A server's update to a new release of crypto, core or the interface comes
-  from Renovate as `fix(deps)` (see "Updates"), so the server's own release
-  pull request follows.
+  from Renovate as `build(deps)` (see "Updates"): it releases nothing by
+  itself. The server's release pull request follows its own `fix` or
+  `feat`.
 
 From the workspace, `brigid release` lists the pull requests to merge, in
 order, with their checks.

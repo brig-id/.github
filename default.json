@@ -86,8 +86,10 @@
         "The project's own releases (crypto, core, app): all in ONE pull request per repository,",
         "on the same Monday schedule; its box on the Dependency Dashboard opens it at once when it",
         "is wanted sooner. The core, crypto and the interface move together, and two versions of",
-        "the core in one build do not compile. It comes in as a fix, whatever the kind of update,",
-        "so the release it leads to is a patch. Not brig-id/.github: its reusable workflows are",
+        "the core in one build do not compile. It comes in as build(deps), whatever the kind of",
+        "update: it releases nothing, and the dependent ships it with its next release (a fix or",
+        "a feature of its own), or when its owner asks for one. Otherwise one change of the core",
+        "would release the core, then every server and the interface in turn. Not brig-id/.github: its reusable workflows are",
         "pinned by a commit without a tag, which Renovate does not follow; they are moved by hand."
       ],
       "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//", "!brig-id/.github"],
@@ -96,8 +98,8 @@
       "groupName": "brig·id",
       "groupSlug": "brig-id",
       "labels": ["dependencies", "brig-id"],
-      "semanticCommitType": "fix",
-      "commitMessageAction": "🐛 bring in"
+      "semanticCommitType": "build",
+      "commitMessageAction": "⬆️ bring in"
     },
     {
       "description": [
