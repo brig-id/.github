@@ -1,0 +1,69 @@
+name: Workflows
+
+# Every workflow file of this repository is read as YAML, and must say what a
+# workflow says (`on`, `jobs`), before it is merged. The other repositories
+# call these files at @main: one that does not parse stops their runs before
+# they start, with no job and no log, and nothing here would have said so.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/**
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/**
+
+permissions:
+  contents: read
+
+jobs:
+  parse:
+    name: Every workflow file parses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Parse
+        run: |
+          python3 -c "import yaml" 2> /dev/null || pip install --quiet pyyaml
+          python3 - << 'PY'
+          import glob
+          import sys
+
+          import yaml
+
+          # The check checks itself first: the line that broke the security
+          # audit (a step name with a colon, not quoted) must be refused.
+          try:
+              yaml.safe_load("steps:\n  - name: cargo audit (the lock file: vulnerabilities)\n")
+          except yaml.YAMLError:
+              pass
+          else:
+              print("::error::the parser accepts the line that broke the audit: this check proves nothing")
+              sys.exit(1)
+
+          bad = 0
+          for path in sorted(glob.glob(".github/workflows/*.yml") + glob.glob("workflow-templates/*.yml")):
+              try:
+                  with open(path, encoding="utf-8") as file:
+                      workflow = yaml.safe_load(file)
+              except yaml.YAMLError as error:
+                  print(f"::error file={path}::not valid YAML: {str(error).splitlines()[0]}")
+                  print(error)
+                  bad += 1
+                  continue
+              # YAML reads the key `on` as the boolean true.
+              missing = [key for key in ("jobs",) if key not in workflow]
+              if "on" not in workflow and True not in workflow:
+                  missing.append("on")
+              if missing:
+                  print(f"::error file={path}::no {' and no '.join(missing)}")
+                  bad += 1
+              else:
+                  print(f"ok  {path}")
+          sys.exit(1 if bad else 0)
+          PY
