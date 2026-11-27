@@ -42,14 +42,14 @@ jobs:
         with:
           tool: cargo-deny
 
-      - name: cargo audit (the lock file: vulnerabilities, unsound and yanked crates)
+      - name: "cargo audit (the lock file: vulnerabilities, unsound and yanked crates)"
         # Everything Cargo.lock names, compiled or not. An unmaintained crate
         # is shown here and not refused: the lock file also names optional
         # dependencies that nothing turns on, and a crate nobody compiles is
         # nobody's risk. Whether one is compiled is the next step's to say.
         run: cargo audit --deny unsound --deny yanked
 
-      - name: cargo deny check (what is compiled: advisories, licences, sources)
+      - name: "cargo deny check (what is compiled: advisories, licences, sources)"
         # deny.toml of the repository: `unmaintained = "all"` refuses an
         # unmaintained crate anywhere in what is built, and its `ignore`
         # list is the one place an exception is argued.
