@@ -1,0 +1,31 @@
+name: Integration (main)
+
+# Every repository at the head of its main, built into a server and tested
+# together (integration.yml): once a week, in case two changes that each passed
+# alone do not hold together, or the tools moved (Rust, the browsers). Also on
+# a pull request that changes the workflow itself, which is how it is tested:
+# with open pull requests from branches of the same name in the other
+# repositories, it runs on them.
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/integration.yml
+      - .github/workflows/integration-main.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    uses: ./.github/workflows/integration.yml
+    with:
+      heads: true

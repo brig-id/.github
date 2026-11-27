@@ -4,9 +4,9 @@
     "brig·id: the one Renovate preset, extended by every repository with",
     "{ \"extends\": [\"github>brig-id/.github\"] }.",
     "Renovate opens pull requests and never merges them. A repository gets at most, on a",
-    "Monday, one pull request for everything from outside the project and one for the",
-    "project's own releases; a lock file refresh a month; a security fix at once. A major",
-    "version waits on the Dependency Dashboard until its box is ticked."
+    "Monday, one pull request for everything from outside the project; a lock file refresh a",
+    "month; a security fix at once. A major version waits on the Dependency Dashboard until",
+    "its box is ticked. The project's own repositories are not Renovate's to move."
   ],
   "extends": [
     "config:recommended",
@@ -42,30 +42,13 @@
     "schedule": ["before 7am on the first day of the month"],
     "commitMessageAction": "⬆️ refresh the lock file"
   },
-  "customManagers": [
-    {
-      "customType": "regex",
-      "description": [
-        "A tag and its commit, written together and annotated on the line above:",
-        "  # renovate: datasource=github-tags depName=brig-id/app",
-        "  ref: <40 hex> # v1.2.3",
-        "The key may also be a variable whose name ends in REF: APP_REF: <40 hex> # v1.2.3.",
-        "Both are updated in one pull request: the commit is what is built, the tag says which release it is."
-      ],
-      "managerFilePatterns": ["/(^|/)\\.github/workflows/[^/]+\\.ya?ml$/"],
-      "matchStrings": [
-        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*(?:ref|[A-Z_]*REF):\\s*(?<currentDigest>[a-f0-9]{40})\\s*#\\s*(?<currentValue>v?\\d\\S*)"
-      ],
-      "versioningTemplate": "semver"
-    }
-  ],
   "packageRules": [
     {
       "description": [
-        "An update from outside the project is not a release of its own: build(deps), which",
-        "release-please leaves out; it ships with the next release. config:recommended would make",
-        "a runtime dependency fix(deps), and each one would open a release pull request. A security",
-        "fix is the exception (vulnerabilityAlerts above)."
+        "An update from outside the project is a build(deps) commit: it ships with the next",
+        "release of a server and is no reason for one (`brigid release` counts feat, fix, perf and",
+        "revert). config:recommended would make a runtime dependency fix(deps). A security fix is",
+        "the exception (vulnerabilityAlerts above)."
       ],
       "matchPackageNames": ["*"],
       "semanticCommitType": "build"
@@ -83,31 +66,16 @@
     },
     {
       "description": [
-        "The project's own releases (crypto, core, app): all in ONE pull request per repository,",
-        "on the same Monday schedule; its box on the Dependency Dashboard opens it at once when it",
-        "is wanted sooner. The core, crypto and the interface move together, and two versions of",
-        "the core in one build do not compile. It comes in as a fix, whatever the kind of update,",
-        "so the release it leads to is a patch. Not brig-id/.github: its reusable workflows are",
-        "pinned by a commit without a tag, which Renovate does not follow; they are moved by hand."
+        "The project's own repositories are left alone. A server follows crypto and the core at a",
+        "commit of their main (branch = \"main\" in Cargo.toml, the commit in Cargo.lock) and the",
+        "interface at a commit of its main (APP_REF in its ci.yml): the pull request that needs a",
+        "newer commit moves it, and the monthly lock file refresh brings the rest. The reusable",
+        "workflows of brig-id/.github are called at @main: without this rule,",
+        "helpers:pinGitHubActionDigests would pin that to a commit and open a pull request in every",
+        "repository each time a workflow changes."
       ],
-      "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//", "!brig-id/.github"],
-      "minimumReleaseAge": null,
-      "dependencyDashboardApproval": false,
-      "groupName": "brig·id",
-      "groupSlug": "brig-id",
-      "labels": ["dependencies", "brig-id"],
-      "semanticCommitType": "fix",
-      "commitMessageAction": "🐛 bring in"
-    },
-    {
-      "description": [
-        "A server is never part of what is released elsewhere: the interface and the demo only test",
-        "against it. Its update is ci, which releases nothing; otherwise each release of the interface",
-        "would release a server, which would release the interface again, without end."
-      ],
-      "matchPackageNames": ["/^brig-id/server-/", "/github\\.com/brig-id/server-/"],
-      "semanticCommitType": "ci",
-      "commitMessageAction": "👷 test against"
+      "matchPackageNames": ["/^brig-id//", "/github\\.com/brig-id//"],
+      "enabled": false
     }
   ]
 }
