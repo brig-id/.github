@@ -132,7 +132,8 @@ workflow`, or `brigid release cut seedling` from the workspace):
    and **the tag with it, last**: a release that fails on the way leaves no
    tag and uses no number. Run it again.
 
-`dry-run` stops before step 3.
+With `dry-run`, step 3 runs without what cannot be undone: no image is pushed, no
+release and no tag are created.
 
 ```yaml
 jobs:
