@@ -34,6 +34,25 @@ small and safe:
 - **A change is tested with the other repositories before it is merged**
   (`integration.yml`, below).
 
+## Security audit (Rust)
+
+`security-audit.yml` runs two tools, each for what it reads.
+
+- `cargo audit` reads **`Cargo.lock`**: every crate named there, compiled or
+  not. It refuses a known vulnerability, an unsound crate and a yanked one.
+- `cargo deny check` reads **what is compiled** (and licences and sources).
+  It is the one that refuses an unmaintained crate, anywhere in the build:
+  the lock file also names optional dependencies that nothing turns on, and
+  a crate nobody compiles is nobody's risk.
+
+**The one place for an exception is the `ignore` list of the repository's
+`deny.toml`, with its reason, and the lists are empty.** An advisory that
+appears is fixed by an update first (`cargo update -p <crate>` is often
+enough: an exception written months ago is usually stale); only what has no
+fix is argued. No repository has a `.cargo/audit.toml`. A `deny.toml` says
+`unmaintained = "all"` and `unsound = "all"`, and `all-features = true` when
+a feature brings dependencies of its own.
+
 ## Integration
 
 `integration.yml` builds a server from the caller's change and the other
