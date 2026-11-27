@@ -47,9 +47,9 @@ Do **not** use it for product implementation, runtime code, or repository-specif
 | [`cli`](https://github.com/brig-id/cli) | `brigid` dev orchestrator CLI |
 | [`crypto`](https://github.com/brig-id/crypto) | Cryptographic primitives |
 | [`core`](https://github.com/brig-id/core) | Business logic crates |
-| [`server-leaf`](https://github.com/brig-id/server-leaf) | Single-server deployment binary |
-| [`server-grove`](https://github.com/brig-id/server-grove) | Multi-server orchestration (future) |
-| [`server-forest`](https://github.com/brig-id/server-forest) | Global federation layer (future) |
+| [`server-seedling`](https://github.com/brig-id/server-seedling) | The smallest edition of the server: one executable |
+| [`server-grove`](https://github.com/brig-id/server-grove) | The middle edition: the same engine in a container, its database replicated |
+| [`server-forest`](https://github.com/brig-id/server-forest) | The largest edition: several nodes on one PostgreSQL database |
 | [`spec`](https://github.com/brig-id/spec) | Technical specs for audit |
 | [`app`](https://github.com/brig-id/app) | Qwik UI |
 | [`site`](https://github.com/brig-id/site) | Public marketing/landing site |

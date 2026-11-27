@@ -39,7 +39,9 @@ small and safe:
 `integration.yml` builds a server from the caller's change and the other
 repositories, and runs the suites that need a whole server: the Rust tests of
 what depends on the caller, the interface's Playwright suite against seedling,
-and the demonstration site's (a site signs people in through seedling).
+and the demonstration site's (a site signs people in through seedling). The
+tests of forest start real nodes on a PostgreSQL database, which the job runs
+for them.
 
 ```yaml
 jobs:
@@ -56,6 +58,7 @@ jobs:
 | app | `true` | `interface demo` |
 | server-seedling | `false` | `tests interface demo` |
 | server-grove | `false` | `tests` |
+| server-forest | `false` | `tests` |
 | demo | `false` | `demo` |
 
 With `heads: false` the others are taken at the commits the server follows:

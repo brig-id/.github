@@ -3,13 +3,14 @@ name: Integration
 # A change in one repository, tested with the others before it is merged.
 #
 # brig·id is several repositories: crypto, the core, the interface (app), the
-# servers (server-seedling, server-grove) and the demonstration site. A server
-# is built from the first three. This workflow builds a server from the
+# servers (server-seedling, server-grove, server-forest) and the demonstration
+# site. A server is built from the first three. This workflow builds a server from the
 # caller's change and the others' commits, then runs the suites that exist
 # for a whole server:
 #
 # - tests      the Rust tests of the repository that depends on the caller
 #              (the core for crypto, the servers for crypto and the core);
+#              forest's start real nodes on a PostgreSQL database;
 # - interface  the interface's Playwright suite, against seedling;
 # - demo       the demonstration site's Playwright suite: a site signs people
 #              in through seedling.
@@ -109,6 +110,7 @@ jobs:
           resolve app "$followed"
           resolve server-seedling main
           resolve server-grove main
+          resolve server-forest main
           resolve demo main
 
           # The suites, and what each runs on. A server tests itself in its own
@@ -122,11 +124,13 @@ jobs:
           done
           for suite in $SUITES; do
             case "$suite:$me" in
-              tests:crypto) leg core tests; leg server-seedling tests; leg server-grove tests ;;
-              tests:server-seedling | tests:server-grove)
+              tests:crypto)
+                leg core tests; leg server-seedling tests; leg server-grove tests; leg server-forest tests ;;
+              tests:server-seedling | tests:server-grove | tests:server-forest)
                 if [ "$upstream_stacked" = true ]; then leg "$me" tests; fi ;;
-              tests:*) leg server-seedling tests; leg server-grove tests ;;
+              tests:*) leg server-seedling tests; leg server-grove tests; leg server-forest tests ;;
               interface:server-grove | demo:server-grove) ;;
+              interface:server-forest | demo:server-forest) ;;
               interface:* | demo:*) leg server-seedling "$suite" ;;
               *) echo "::error::unknown suite '$suite' (tests, interface, demo)"; exit 1 ;;
             esac
@@ -298,12 +302,34 @@ jobs:
           tool: cargo-nextest
 
       - name: Rust tests
-        if: matrix.suite == 'tests'
+        if: matrix.suite == 'tests' && matrix.repo != 'server-forest'
         working-directory: subject
         env:
           # As in ci-rust.yml: a short path for what the tests create.
           CARGO_TARGET_DIR: /tmp/cargo-target
         run: cargo nextest run --all-features
+
+      - name: Rust tests, the nodes on PostgreSQL
+        # forest is several nodes on one PostgreSQL database: its tests
+        # start them on a real one. Started here and not as a service of the
+        # job, which every other suite would start for nothing.
+        if: matrix.suite == 'tests' && matrix.repo == 'server-forest'
+        working-directory: subject
+        env:
+          CARGO_TARGET_DIR: /tmp/cargo-target
+          BRIGID_TEST_POSTGRES: postgres://postgres:test@localhost:5432/forest
+        run: |
+          set -euo pipefail
+          docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_PASSWORD=test -e POSTGRES_DB=forest postgres:19
+          for _ in $(seq 1 60); do
+            docker exec postgres pg_isready -q -U postgres -d forest && break
+            sleep 1
+          done
+          # The image restarts PostgreSQL once when it creates the database.
+          sleep 2
+          docker exec postgres pg_isready -q -U postgres -d forest
+          cargo nextest run --all-features
 
       # -- interface, demo: a server, and a browser ------------------------------
 
