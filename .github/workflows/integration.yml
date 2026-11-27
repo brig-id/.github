@@ -1,0 +1,386 @@
+name: Integration
+
+# A change in one repository, tested with the others before it is merged.
+#
+# brig·id is several repositories: crypto, the core, the interface (app), the
+# servers (server-seedling, server-grove) and the demonstration site. A server
+# is built from the first three. This workflow builds a server from the
+# caller's change and the others' commits, then runs the suites that exist
+# for a whole server:
+#
+# - tests      the Rust tests of the repository that depends on the caller
+#              (the core for crypto, the servers for crypto and the core);
+# - interface  the interface's Playwright suite, against seedling;
+# - demo       the demonstration site's Playwright suite: a site signs people
+#              in through seedling.
+#
+# Which commit of each repository:
+#
+# - the caller, at the commit being tested;
+# - a repository that has an OPEN PULL REQUEST FROM A BRANCH OF THE SAME NAME
+#   as the caller's, at that branch: a change that spans repositories is one
+#   pull request per repository, on branches that share their name, and they
+#   are tested together before any is merged (merge them from crypto down to
+#   the servers);
+# - otherwise, with `heads: true`, at the head of `main` (what a change to
+#   crypto, the core or the interface will meet); with `heads: false`, at the
+#   commit the server follows (its Cargo.lock, the APP_REF of its ci.yml):
+#   what the server ships.
+
+on:
+  workflow_call:
+    inputs:
+      heads:
+        description: >-
+          true: crypto, the core and the interface at the head of their main.
+          false: at the commits the server follows.
+        type: boolean
+        default: false
+      suites:
+        description: The suites to run, separated by spaces (tests, interface, demo).
+        type: string
+        default: tests interface demo
+      stack:
+        description: >-
+          The branch name looked for in the other repositories (an open pull
+          request from it is taken instead of main). Default: the caller's
+          own branch.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  refs:
+    name: Which commit of each repository
+    runs-on: ubuntu-latest
+    outputs:
+      refs: ${{ steps.refs.outputs.refs }}
+      matrix: ${{ steps.refs.outputs.matrix }}
+    steps:
+      - id: refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ inputs.stack || github.head_ref || github.ref_name }}
+          HEADS: ${{ inputs.heads }}
+          SUITES: ${{ inputs.suites }}
+        run: |
+          set -euo pipefail
+          org="${GITHUB_REPOSITORY%/*}"
+          me="${GITHUB_REPOSITORY#*/}"
+          stacked=""
+          refs="{}"
+          {
+            echo "| Repository | Commit | Why |"
+            echo "| --- | --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # resolve <repository> <default>: an empty default means "the commit
+          # the server follows", read later from the server's own files.
+          resolve() {
+            local repo=$1 ref=$2 why
+            if [ "$ref" = main ]; then why="head of main"; else why="what the server follows"; fi
+            if [ "$repo" = "$me" ]; then
+              ref=$GITHUB_SHA why="this change"
+            elif [ "$BRANCH" != main ]; then
+              local pr
+              # A branch of the repository itself, not of a fork of it.
+              pr=$(gh api --method GET "repos/$org/$repo/pulls" -f state=open -f head="$org:$BRANCH" \
+                --jq '.[0] | select(. != null) | "\(.number) \(.head.sha)"')
+              if [ -n "$pr" ]; then
+                ref=${pr#* } why="$org/$repo#${pr%% *}, from the branch of the same name"
+                stacked="$stacked $repo"
+              fi
+            fi
+            # One commit for every suite, whatever is merged while they run.
+            if [ "$ref" = main ]; then ref=$(gh api "repos/$org/$repo/commits/main" --jq .sha); fi
+            refs=$(jq -c --arg repo "$repo" --arg ref "$ref" '.[$repo] = $ref' <<< "$refs")
+            echo "| $repo | \`${ref:-—}\` | $why |" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          if [ "$HEADS" = true ]; then followed=main; else followed=""; fi
+          resolve crypto "$followed"
+          resolve core "$followed"
+          resolve app "$followed"
+          resolve server-seedling main
+          resolve server-grove main
+          resolve demo main
+
+          # The suites, and what each runs on. A server tests itself in its own
+          # CI: its Rust tests run again here only with a branch of the same
+          # name in the core or crypto, which its CI does not see.
+          legs="[]"
+          leg() { legs=$(jq -c --arg repo "$1" --arg suite "$2" '. + [{repo: $repo, suite: $suite}]' <<< "$legs"); }
+          upstream_stacked=false
+          for repo in $stacked; do
+            case $repo in crypto | core) upstream_stacked=true ;; esac
+          done
+          for suite in $SUITES; do
+            case "$suite:$me" in
+              tests:crypto) leg core tests; leg server-seedling tests; leg server-grove tests ;;
+              tests:server-seedling | tests:server-grove)
+                if [ "$upstream_stacked" = true ]; then leg "$me" tests; fi ;;
+              tests:*) leg server-seedling tests; leg server-grove tests ;;
+              interface:server-grove | demo:server-grove) ;;
+              interface:* | demo:*) leg server-seedling "$suite" ;;
+              *) echo "::error::unknown suite '$suite' (tests, interface, demo)"; exit 1 ;;
+            esac
+          done
+
+          echo "refs=$refs" >> "$GITHUB_OUTPUT"
+          echo "matrix=$legs" >> "$GITHUB_OUTPUT"
+          echo "$refs" | jq .
+          echo "$legs" | jq -c '.[]'
+
+      - name: The interface a server follows is a commit of its main
+        # A commit taken from a pull request's branch is gone once that pull
+        # request is merged (merges rebase): the server would no longer build.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          org="${GITHUB_REPOSITORY%/*}"
+          case "${GITHUB_REPOSITORY#*/}" in
+            server-*) ;;
+            *) echo "Not a server: nothing to check."; exit 0 ;;
+          esac
+          app_ref=$(gh api -H "Accept: application/vnd.github.raw" \
+            "repos/$GITHUB_REPOSITORY/contents/.github/workflows/ci.yml?ref=$GITHUB_SHA" \
+            | sed -n 's/^ *APP_REF: *\([0-9a-f]\{40\}\).*/\1/p' | head -n 1)
+          test -n "$app_ref" || { echo "::error::no APP_REF: <commit> in .github/workflows/ci.yml"; exit 1; }
+          status=$(gh api "repos/$org/app/compare/main...$app_ref" --jq .status)
+          case $status in
+            identical | behind) echo "APP_REF $app_ref is on the interface's main ($status)." ;;
+            *) echo "::error::APP_REF $app_ref is not a commit of $org/app's main ($status): merge the interface first, then follow the commit it got on main."; exit 1 ;;
+          esac
+
+  suite:
+    name: ${{ matrix.suite }} (${{ matrix.repo }})
+    needs: refs
+    if: needs.refs.outputs.matrix != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.refs.outputs.matrix) }}
+    env:
+      ORG: ${{ github.repository_owner }}
+      CORE_REF: ${{ fromJSON(needs.refs.outputs.refs).core }}
+      CRYPTO_REF: ${{ fromJSON(needs.refs.outputs.refs).crypto }}
+      APP_REF: ${{ fromJSON(needs.refs.outputs.refs).app }}
+    steps:
+      # `subject` is what is built and tested: a server, or the core.
+      - name: Checkout ${{ matrix.repo }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: ${{ github.repository_owner }}/${{ matrix.repo }}
+          ref: ${{ fromJSON(needs.refs.outputs.refs)[matrix.repo] }}
+          path: subject
+
+      - name: Checkout core
+        if: matrix.repo != 'core' && env.CORE_REF != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: ${{ github.repository_owner }}/core
+          ref: ${{ env.CORE_REF }}
+          path: core
+
+      - name: Checkout crypto
+        if: env.CRYPTO_REF != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: ${{ github.repository_owner }}/crypto
+          ref: ${{ env.CRYPTO_REF }}
+          path: crypto
+
+      - name: The interface the server follows
+        id: followed
+        if: matrix.suite != 'tests' && env.APP_REF == ''
+        run: |
+          app_ref=$(sed -n 's/^ *APP_REF: *\([0-9a-f]\{40\}\).*/\1/p' subject/.github/workflows/ci.yml | head -n 1)
+          test -n "$app_ref" || { echo "::error::no APP_REF: <commit> in the server's ci.yml"; exit 1; }
+          echo "app=$app_ref" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout app
+        if: matrix.suite != 'tests'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: ${{ github.repository_owner }}/app
+          ref: ${{ env.APP_REF || steps.followed.outputs.app }}
+          path: web
+
+      - name: Checkout demo
+        if: matrix.suite == 'demo'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: ${{ github.repository_owner }}/demo
+          ref: ${{ fromJSON(needs.refs.outputs.refs).demo }}
+          path: demo
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master @ 2026-08-05
+        with:
+          toolchain: stable
+
+      - name: Install system dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y mold
+
+      - name: Cache cargo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('subject/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build with the checkouts of the core and crypto
+        # A [patch] in a cargo configuration above the checkouts, so that
+        # every cargo of this job uses it (Playwright starts the server with
+        # `cargo run`).
+        # The lock file still names the commits the subject follows: its
+        # entries for the replaced crates are refreshed, and the step fails if
+        # one of them is still taken from GitHub, so that a green run has
+        # tested what it says.
+        if: hashFiles('core/Cargo.toml', 'crypto/Cargo.toml') != ''
+        run: |
+          set -euo pipefail
+          patch=$(mktemp)
+          names=()
+          replaced=()
+          for repo in core crypto; do
+            [ -f "$repo/Cargo.toml" ] || continue
+            replaced+=("$repo")
+            echo "[patch.\"https://github.com/$ORG/$repo\"]" >> "$patch"
+            while read -r name dir; do
+              echo "$name = { path = \"$dir\" }" >> "$patch"
+              names+=("$name")
+            done < <(cargo metadata --no-deps --format-version 1 --manifest-path "$repo/Cargo.toml" \
+              | jq -r '.packages[] | "\(.name) \(.manifest_path | sub("/Cargo.toml$"; ""))"')
+          done
+          mkdir -p "$GITHUB_WORKSPACE/.cargo"
+          cat "$patch" >> "$GITHUB_WORKSPACE/.cargo/config.toml"
+          cat "$patch"
+
+          cd subject
+          update=()
+          for name in "${names[@]}"; do
+            if grep -qx "name = \"$name\"" Cargo.lock; then update+=(-p "$name"); fi
+          done
+          if [ ${#update[@]} -gt 0 ]; then cargo update "${update[@]}"; fi
+
+          pattern="github\\.com/$ORG/($(IFS='|'; echo "${replaced[*]}"))([?#]|$)"
+          left=$(cargo metadata --format-version 1 \
+            | jq -r --arg pattern "$pattern" '.packages[] | select(.source != null) | select(.source | test($pattern)) | .id')
+          if [ -n "$left" ]; then
+            echo "::error::still taken from GitHub instead of the checkout:"
+            echo "$left"
+            exit 1
+          fi
+
+      # -- tests ---------------------------------------------------------------
+
+      - name: Install cargo-nextest
+        if: matrix.suite == 'tests'
+        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: cargo-nextest
+
+      - name: Rust tests
+        if: matrix.suite == 'tests'
+        working-directory: subject
+        env:
+          # As in ci-rust.yml: a short path for what the tests create.
+          CARGO_TARGET_DIR: /tmp/cargo-target
+        run: cargo nextest run --all-features
+
+      # -- interface, demo: a server, and a browser ------------------------------
+
+      - name: Build the server
+        # Playwright starts it with `cargo run` and waits 60 s for its port:
+        # enough to start a binary, not to compile one. Build it beforehand.
+        if: matrix.suite != 'tests'
+        run: cargo build --manifest-path subject/Cargo.toml
+
+      - uses: helpers4/action/setup-pnpm@6fddd178620e7325d446a246c38a44f979569fc4 # main @ 2026-07-29
+        if: matrix.suite != 'tests'
+        with:
+          node-version: "24"
+          working-directory: web
+
+      - name: Install the browsers (interface)
+        if: matrix.suite == 'interface'
+        working-directory: web
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: The interface's suite
+        if: matrix.suite == 'interface'
+        working-directory: web
+        env:
+          BRIGID_SERVER_DIR: ${{ github.workspace }}/subject
+          CI: "true"
+        run: pnpm run test.e2e
+
+      - name: Build the interface
+        if: matrix.suite == 'demo'
+        working-directory: web
+        run: pnpm run build
+
+      - uses: helpers4/action/setup-pnpm@6fddd178620e7325d446a246c38a44f979569fc4 # main @ 2026-07-29
+        if: matrix.suite == 'demo'
+        with:
+          node-version: "24"
+          working-directory: demo
+
+      - name: Install the browser (demo)
+        if: matrix.suite == 'demo'
+        working-directory: demo
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: The demonstration site's suite
+        if: matrix.suite == 'demo'
+        working-directory: demo
+        env:
+          BRIGID_SERVER_DIR: ${{ github.workspace }}/subject
+          BRIGID_APP_DIST: ${{ github.workspace }}/web/dist
+          CI: "true"
+        run: pnpm run test.e2e
+
+      - name: Upload Playwright traces on failure
+        # The suites use the "github" reporter in CI (annotations, no HTML
+        # report); test-results/ still holds a trace.zip per failed test,
+        # viewable with `npx playwright show-trace`.
+        if: failure() && matrix.suite != 'tests'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-traces-${{ matrix.suite }}
+          path: |
+            web/test-results/
+            demo/test-results/
+          retention-days: 14
+
+  # One check to require on `main`, whatever the suites of the day are.
+  done:
+    name: Integration
+    needs: [refs, suite]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          REFS: ${{ needs.refs.result }}
+          SUITE: ${{ needs.suite.result }}
+        run: |
+          echo "refs: $REFS, suites: $SUITE"
+          test "$REFS" = success
+          case $SUITE in success | skipped) ;; *) exit 1 ;; esac
