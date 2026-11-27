@@ -322,13 +322,13 @@ jobs:
           set -euo pipefail
           docker run -d --name postgres -p 5432:5432 \
             -e POSTGRES_PASSWORD=test -e POSTGRES_DB=forest postgres:19
+          # Asked over the network, not the local socket: while the image
+          # creates the database it runs a first server on the socket only.
           for _ in $(seq 1 60); do
-            docker exec postgres pg_isready -q -U postgres -d forest && break
+            docker exec postgres pg_isready -q -h 127.0.0.1 -U postgres -d forest && break
             sleep 1
           done
-          # The image restarts PostgreSQL once when it creates the database.
-          sleep 2
-          docker exec postgres pg_isready -q -U postgres -d forest
+          docker exec postgres pg_isready -q -h 127.0.0.1 -U postgres -d forest
           cargo nextest run --all-features
 
       # -- interface, demo: a server, and a browser ------------------------------
